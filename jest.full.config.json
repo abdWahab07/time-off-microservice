@@ -1,0 +1,20 @@
+{
+  "moduleFileExtensions": ["js", "json"],
+  "rootDir": ".",
+  "testEnvironment": "node",
+  "testTimeout": 30000,
+  "setupFiles": ["<rootDir>/test/jest-setup.js"],
+  "testMatch": [
+    "<rootDir>/src/**/*.spec.js",
+    "<rootDir>/test/**/*.e2e-spec.js"
+  ],
+  "transform": {
+    "^.+\\.js$": "@swc/jest"
+  },
+  "coverageDirectory": "coverage",
+  "collectCoverageFrom": [
+    "src/**/*.js",
+    "!src/**/*.spec.js",
+    "!src/main.js"
+  ]
+}

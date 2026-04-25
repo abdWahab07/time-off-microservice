@@ -1,0 +1,10 @@
+{
+  "moduleFileExtensions": ["js", "json"],
+  "rootDir": "..",
+  "testEnvironment": "node",
+  "setupFiles": ["<rootDir>/test/jest-setup.js"],
+  "testRegex": "test/.*\\.e2e-spec\\.js$",
+  "transform": {
+    "^.+\\.js$": "@swc/jest"
+  }
+}
