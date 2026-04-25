@@ -1,14 +1,16 @@
 Time-Off Microservice — coverage (npm run test:cov)
 
-Last run (combined unit + e2e via jest.full.config.json) — numbers taken from the Jest table row **All files**:
+Last run (combined unit + e2e via jest.full.config.json) — numbers taken from the Jest table row **All files** (re-verified with `npm run test:cov` on 2026-04-25):
 
-- Statements: 84.03%
-- Branches: 45.68%
-- Functions: 95.12%
-- Lines: 91.13%
+- Statements: 82.49%
+- Branches: 47.79%
+- Functions: 92.95%
+- Lines: 88.49%
+
+`jest.full.config.json` defines **coverageThreshold** on the same global metrics (floor values slightly below this run so `npm run test:cov` fails if coverage regresses materially).
 
 Regenerate before submit: from repo root run `npm run test:cov`, then copy the **All files** row (Statements / Branch / Funcs / Lines) into this file so proof matches the command output.
 
 Notes:
-- Suites include e2e (`test/*.e2e-spec.js`), service/repo/filter unit specs under `src/`, and mock HCM tests.
-- Branch % is pulled down by Nest `*.module.js`, DTO decorators, and some glue code; domain services/repos are tested more heavily (see HTML report under `coverage/`).
+- Suites include e2e (`test/*.e2e-spec.js`), service/repo/filter/guard unit specs under `src/`, and mock HCM / HCM client tests.
+- Branch % is still pulled down by Nest `*.module.js`, DTO decorators, and some glue code; domain services, `time-off-access.guards.js`, `balances.service.js`, and `hcm-client.service.js` are covered more heavily (see HTML report under `coverage/`).

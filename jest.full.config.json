@@ -16,5 +16,13 @@
     "src/**/*.js",
     "!src/**/*.spec.js",
     "!src/main.js"
-  ]
+  ],
+  "coverageThreshold": {
+    "global": {
+      "branches": 46,
+      "functions": 92,
+      "lines": 87,
+      "statements": 81
+    }
+  }
 }

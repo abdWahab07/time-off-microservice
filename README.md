@@ -78,10 +78,9 @@ npm run test:cov         # unit + e2e with coverage (jest.full.config.json)
 
 ### Coverage
 
-See `coverage-summary.txt` for the latest combined numbers. Example from a recent run:
+See `coverage-summary.txt` for the canonical combined numbers (copy the **All files** row after each `npm run test:cov`). As of the last verification run, totals were roughly **Statements ~82%**, **Branches ~48%**, **Functions ~93%**, **Lines ~88%** for unit + e2e together (`jest.full.config.json`).
 
-- **Lines ~80%**, **Functions ~89%**, **Statements ~74%** when unit and e2e suites run together (`npm run test:cov`).
-- Branch coverage is lower on defensive / failure paths; add focused tests if you need higher branch %.
+- Branch coverage is lower on Nest modules, DTO decorators, and glue code; see `coverage-summary.txt` notes and the HTML report under `coverage/`.
 
 ## API examples
 
