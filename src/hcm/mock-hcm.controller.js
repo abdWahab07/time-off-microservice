@@ -1,9 +1,13 @@
 import { Controller, Dependencies, Get, Post, Req, UseGuards } from '@nestjs/common';
+import { Roles } from '../common/auth/roles.decorator';
 import { ApiKeyGuard } from '../common/guards/api-key.guard';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
 import { MockHcmService } from './services/mock-hcm.service';
 
 @Controller('mock-hcm')
-@UseGuards(ApiKeyGuard)
+@UseGuards(ApiKeyGuard, JwtAuthGuard, RolesGuard)
+@Roles('admin', 'system')
 @Dependencies(MockHcmService)
 class MockHcmController {
   constructor(mockHcmService) {

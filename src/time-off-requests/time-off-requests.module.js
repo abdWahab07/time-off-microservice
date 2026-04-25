@@ -7,6 +7,11 @@ import { HcmOperationsRepository } from './repositories/hcm-operations.repositor
 import { HcmModule } from '../hcm/hcm.module';
 import { AuditModule } from '../audit/audit.module';
 import { BalancesModule } from '../balances/balances.module';
+import {
+  CancelActorGuard,
+  TimeOffByIdReadGuard,
+  TimeOffListQueryGuard,
+} from './guards/time-off-access.guards';
 
 @Module({
   imports: [HcmModule, AuditModule, BalancesModule],
@@ -16,6 +21,9 @@ import { BalancesModule } from '../balances/balances.module';
     ReservationsRepository,
     HcmOperationsRepository,
     TimeOffRequestsService,
+    TimeOffListQueryGuard,
+    TimeOffByIdReadGuard,
+    CancelActorGuard,
   ],
   exports: [TimeOffRequestsService, TimeOffRequestsRepository],
 })

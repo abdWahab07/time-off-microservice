@@ -24,9 +24,12 @@ function basePendingRequest(overrides = {}) {
   };
 }
 
-function expectApiError(fn, status, code) {
+async function expectApiError(fn, status, code) {
   try {
-    fn();
+    const result = fn();
+    if (result && typeof result.then === 'function') {
+      await result;
+    }
     throw new Error('expected throw');
   } catch (e) {
     expect(e).toBeInstanceOf(HttpException);
@@ -148,23 +151,23 @@ describe('TimeOffRequestsService.approve', () => {
     );
   });
 
-  it('throws NOT_FOUND when request missing', () => {
+  it('throws NOT_FOUND when request missing', async () => {
     requestsRepo.findById.mockReturnValue(null);
-    expectApiError(
+    await expectApiError(
       () => service.approve('missing', { managerId: 'mgr' }),
       HttpStatus.NOT_FOUND,
       'REQUEST_NOT_FOUND',
     );
   });
 
-  it('returns immediately when already APPROVED', () => {
+  it('returns immediately when already APPROVED', async () => {
     const row = basePendingRequest({
       status: RequestStatus.APPROVED,
       managerId: 'm0',
       hcmTransactionId: 'hcm_txn_old',
     });
     requestsRepo.findById.mockReturnValue(row);
-    const out = service.approve('req_test_1', { managerId: 'mgr' });
+    const out = await service.approve('req_test_1', { managerId: 'mgr' });
     expect(out).toEqual({
       id: 'req_test_1',
       status: RequestStatus.APPROVED,
@@ -174,18 +177,18 @@ describe('TimeOffRequestsService.approve', () => {
     expect(hcm.getBalance).not.toHaveBeenCalled();
   });
 
-  it('throws INVALID_STATE_TRANSITION when not pending or needs-review', () => {
+  it('throws INVALID_STATE_TRANSITION when not pending or needs-review', async () => {
     requestsRepo.findById.mockReturnValue(
       basePendingRequest({ status: RequestStatus.REJECTED }),
     );
-    expectApiError(
+    await expectApiError(
       () => service.approve('req_test_1', { managerId: 'mgr' }),
       HttpStatus.CONFLICT,
       'INVALID_STATE_TRANSITION',
     );
   });
 
-  it('returns when prior HCM op already SUCCESS (idempotent)', () => {
+  it('returns when prior HCM op already SUCCESS (idempotent)', async () => {
     requestsRepo.findById
       .mockReturnValueOnce(
         basePendingRequest({ status: RequestStatus.NEEDS_REVIEW }),
@@ -200,12 +203,12 @@ describe('TimeOffRequestsService.approve', () => {
       status: 'SUCCESS',
       idempotencyKey: 'hcm-file-req_test_1',
     });
-    const out = service.approve('req_test_1', { managerId: 'mgr' });
+    const out = await service.approve('req_test_1', { managerId: 'mgr' });
     expect(out.hcmTransactionId).toBe('hcm_done');
     expect(hcm.getBalance).not.toHaveBeenCalled();
   });
 
-  it('throws HCM_UNAVAILABLE when getBalance throws HcmClientException', () => {
+  it('throws HCM_UNAVAILABLE when getBalance throws HcmClientException', async () => {
     requestsRepo.findById.mockReturnValue(basePendingRequest());
     hcmOpsRepo.findByIdempotencyKey.mockReturnValue(null);
     hcm.getBalance.mockImplementation(() => {
@@ -214,29 +217,29 @@ describe('TimeOffRequestsService.approve', () => {
         'down',
       );
     });
-    expectApiError(
+    await expectApiError(
       () => service.approve('req_test_1', { managerId: 'mgr' }),
       HttpStatus.SERVICE_UNAVAILABLE,
       'HCM_UNAVAILABLE',
     );
   });
 
-  it('rethrows non-HcmClientException from getBalance', () => {
+  it('rethrows non-HcmClientException from getBalance', async () => {
     requestsRepo.findById.mockReturnValue(basePendingRequest());
     hcmOpsRepo.findByIdempotencyKey.mockReturnValue(null);
     hcm.getBalance.mockImplementation(() => {
       throw new Error('network');
     });
-    expect(() =>
+    await expect(
       service.approve('req_test_1', { managerId: 'mgr' }),
-    ).toThrow('network');
+    ).rejects.toThrow('network');
   });
 
-  it('throws INSUFFICIENT_BALANCE when HCM balance below requested before file', () => {
+  it('throws INSUFFICIENT_BALANCE when HCM balance below requested before file', async () => {
     requestsRepo.findById.mockReturnValue(basePendingRequest());
     hcmOpsRepo.findByIdempotencyKey.mockReturnValue(null);
     hcm.getBalance.mockReturnValue({ availableDays: 1 });
-    expectApiError(
+    await expectApiError(
       () => service.approve('req_test_1', { managerId: 'mgr' }),
       HttpStatus.CONFLICT,
       'INSUFFICIENT_BALANCE',
@@ -244,7 +247,7 @@ describe('TimeOffRequestsService.approve', () => {
     expect(hcmOpsRepo.insertStarted).not.toHaveBeenCalled();
   });
 
-  it('completes happy path', () => {
+  it('completes happy path', async () => {
     requestsRepo.findById
       .mockReturnValueOnce(basePendingRequest())
       .mockReturnValueOnce({
@@ -259,7 +262,7 @@ describe('TimeOffRequestsService.approve', () => {
       .mockReturnValueOnce({ availableDays: 3 });
     hcm.fileTimeOff.mockReturnValue({ transactionId: 'hcm_txn_new' });
 
-    const out = service.approve('req_test_1', { managerId: 'mgr' });
+    const out = await service.approve('req_test_1', { managerId: 'mgr' });
 
     expect(out.status).toBe(RequestStatus.APPROVED);
     expect(out.hcmTransactionId).toBe('hcm_txn_new');
@@ -267,7 +270,7 @@ describe('TimeOffRequestsService.approve', () => {
     expect(audit.log).toHaveBeenCalled();
   });
 
-  it('on file INSUFFICIENT_BALANCE marks failed and sets HCM_REJECTED', () => {
+  it('on file INSUFFICIENT_BALANCE marks failed and sets HCM_REJECTED', async () => {
     requestsRepo.findById.mockReturnValue(basePendingRequest());
     hcmOpsRepo.findByIdempotencyKey.mockReturnValue(null);
     hcm.getBalance.mockReturnValue({ availableDays: 10 });
@@ -279,7 +282,7 @@ describe('TimeOffRequestsService.approve', () => {
       );
     });
 
-    expectApiError(
+    await expectApiError(
       () => service.approve('req_test_1', { managerId: 'mgr' }),
       HttpStatus.CONFLICT,
       'INSUFFICIENT_BALANCE',
@@ -291,7 +294,7 @@ describe('TimeOffRequestsService.approve', () => {
     expect(requestsRepo.update).toHaveBeenCalled();
   });
 
-  it('on file INVALID_DIMENSIONS returns 422 and releases reservation', () => {
+  it('on file INVALID_DIMENSIONS returns 422 and releases reservation', async () => {
     requestsRepo.findById.mockReturnValue(basePendingRequest());
     hcmOpsRepo.findByIdempotencyKey.mockReturnValue(null);
     hcm.getBalance.mockReturnValue({ availableDays: 10 });
@@ -302,7 +305,7 @@ describe('TimeOffRequestsService.approve', () => {
       );
     });
 
-    expectApiError(
+    await expectApiError(
       () => service.approve('req_test_1', { managerId: 'mgr' }),
       HttpStatus.UNPROCESSABLE_ENTITY,
       'INVALID_DIMENSIONS',
@@ -313,7 +316,7 @@ describe('TimeOffRequestsService.approve', () => {
     );
   });
 
-  it('on file other HcmClientException marks RETRYABLE_FAILED and 503', () => {
+  it('on file other HcmClientException marks RETRYABLE_FAILED and 503', async () => {
     requestsRepo.findById.mockReturnValue(basePendingRequest());
     hcmOpsRepo.findByIdempotencyKey.mockReturnValue(null);
     hcm.getBalance.mockReturnValue({ availableDays: 10 });
@@ -324,7 +327,7 @@ describe('TimeOffRequestsService.approve', () => {
       );
     });
 
-    expectApiError(
+    await expectApiError(
       () => service.approve('req_test_1', { managerId: 'mgr' }),
       HttpStatus.SERVICE_UNAVAILABLE,
       'HCM_UNAVAILABLE',
@@ -335,7 +338,7 @@ describe('TimeOffRequestsService.approve', () => {
     );
   });
 
-  it('on file non-Hcm error marks UNKNOWN and rethrows', () => {
+  it('on file non-Hcm error marks UNKNOWN and rethrows', async () => {
     requestsRepo.findById.mockReturnValue(basePendingRequest());
     hcmOpsRepo.findByIdempotencyKey.mockReturnValue(null);
     hcm.getBalance.mockReturnValue({ availableDays: 10 });
@@ -343,9 +346,9 @@ describe('TimeOffRequestsService.approve', () => {
       throw new Error('bug');
     });
 
-    expect(() =>
+    await expect(
       service.approve('req_test_1', { managerId: 'mgr' }),
-    ).toThrow('bug');
+    ).rejects.toThrow('bug');
     expect(hcmOpsRepo.markFailed).toHaveBeenCalledWith(
       'op_1',
       expect.objectContaining({
@@ -357,7 +360,7 @@ describe('TimeOffRequestsService.approve', () => {
 });
 
 describe('TimeOffRequestsService.create', () => {
-  it('idempotent replay uses requestedDays when no reservation row', () => {
+  it('idempotent replay uses requestedDays when no reservation row', async () => {
     const { service, requestsRepo, reservationsRepo } = serviceWithMocks();
     requestsRepo.findByIdempotency.mockReturnValue({
       id: 'req_old',
@@ -369,12 +372,12 @@ describe('TimeOffRequestsService.create', () => {
       status: RequestStatus.PENDING,
     });
     reservationsRepo.findByRequestId.mockReturnValue(null);
-    const out = service.create(validCreate({ idempotencyKey: 'idem-x' }));
+    const out = await service.create(validCreate({ idempotencyKey: 'idem-x' }));
     expect(out.idempotentReplay).toBe(true);
     expect(out.payload.reservedDays).toBe(3);
   });
 
-  it('idempotent replay uses reservation reservedDays when present', () => {
+  it('idempotent replay uses reservation reservedDays when present', async () => {
     const { service, requestsRepo, reservationsRepo } = serviceWithMocks();
     requestsRepo.findByIdempotency.mockReturnValue({
       id: 'req_old',
@@ -386,23 +389,23 @@ describe('TimeOffRequestsService.create', () => {
       status: RequestStatus.PENDING,
     });
     reservationsRepo.findByRequestId.mockReturnValue({ reservedDays: 7 });
-    const out = service.create(validCreate({ idempotencyKey: 'idem-x' }));
+    const out = await service.create(validCreate({ idempotencyKey: 'idem-x' }));
     expect(out.idempotentReplay).toBe(true);
     expect(out.payload.reservedDays).toBe(7);
   });
 
-  it('throws DUPLICATE_ACTIVE_REQUEST on overlap', () => {
+  it('throws DUPLICATE_ACTIVE_REQUEST on overlap', async () => {
     const { service, requestsRepo } = serviceWithMocks();
     requestsRepo.findByIdempotency.mockReturnValue(null);
     requestsRepo.findOverlappingActive.mockReturnValue([{ id: 'other' }]);
-    expectApiError(
+    await expectApiError(
       () => service.create(validCreate()),
       HttpStatus.CONFLICT,
       'DUPLICATE_ACTIVE_REQUEST',
     );
   });
 
-  it('maps INVALID_DIMENSIONS from HCM on create', () => {
+  it('maps INVALID_DIMENSIONS from HCM on create', async () => {
     const { service, requestsRepo, hcm } = serviceWithMocks();
     requestsRepo.findByIdempotency.mockReturnValue(null);
     requestsRepo.findOverlappingActive.mockReturnValue([]);
@@ -413,14 +416,14 @@ describe('TimeOffRequestsService.create', () => {
         { employeeId: 'x' },
       );
     });
-    expectApiError(
+    await expectApiError(
       () => service.create(validCreate()),
       HttpStatus.UNPROCESSABLE_ENTITY,
       'INVALID_DIMENSIONS',
     );
   });
 
-  it('maps HCM_UNAVAILABLE from HCM on create', () => {
+  it('maps HCM_UNAVAILABLE from HCM on create', async () => {
     const { service, requestsRepo, hcm } = serviceWithMocks();
     requestsRepo.findByIdempotency.mockReturnValue(null);
     requestsRepo.findOverlappingActive.mockReturnValue([]);
@@ -430,14 +433,14 @@ describe('TimeOffRequestsService.create', () => {
         'down',
       );
     });
-    expectApiError(
+    await expectApiError(
       () => service.create(validCreate()),
       HttpStatus.SERVICE_UNAVAILABLE,
       'HCM_UNAVAILABLE',
     );
   });
 
-  it('maps other HcmClientException on create to HCM_UNAVAILABLE', () => {
+  it('maps other HcmClientException on create to HCM_UNAVAILABLE', async () => {
     const { service, requestsRepo, hcm } = serviceWithMocks();
     requestsRepo.findByIdempotency.mockReturnValue(null);
     requestsRepo.findOverlappingActive.mockReturnValue([]);
@@ -447,37 +450,37 @@ describe('TimeOffRequestsService.create', () => {
         'pre-check',
       );
     });
-    expectApiError(
+    await expectApiError(
       () => service.create(validCreate()),
       HttpStatus.SERVICE_UNAVAILABLE,
       'HCM_UNAVAILABLE',
     );
   });
 
-  it('rethrows non-HcmClientException from getBalance on create', () => {
+  it('rethrows non-HcmClientException from getBalance on create', async () => {
     const { service, requestsRepo, hcm } = serviceWithMocks();
     requestsRepo.findByIdempotency.mockReturnValue(null);
     requestsRepo.findOverlappingActive.mockReturnValue([]);
     hcm.getBalance.mockImplementation(() => {
       throw new Error('tcp reset');
     });
-    expect(() => service.create(validCreate())).toThrow('tcp reset');
+    await expect(service.create(validCreate())).rejects.toThrow('tcp reset');
   });
 
-  it('throws INSUFFICIENT_BALANCE inside transaction when display available is 0', () => {
+  it('throws INSUFFICIENT_BALANCE inside transaction when display available is 0', async () => {
     const { service, requestsRepo, hcm, balancesRepo } = serviceWithMocks();
     requestsRepo.findByIdempotency.mockReturnValue(null);
     requestsRepo.findOverlappingActive.mockReturnValue([]);
     hcm.getBalance.mockReturnValue({ availableDays: 5 });
     balancesRepo.findByEmployeeLocation.mockReturnValue(null);
-    expectApiError(
+    await expectApiError(
       () => service.create(validCreate({ requestedDays: 1 })),
       HttpStatus.CONFLICT,
       'INSUFFICIENT_BALANCE',
     );
   });
 
-  it('creates request on happy path', () => {
+  it('creates request on happy path', async () => {
     const { service, requestsRepo, hcm, balancesRepo, reservationsRepo, audit } =
       serviceWithMocks();
     requestsRepo.findByIdempotency.mockReturnValue(null);
@@ -496,7 +499,7 @@ describe('TimeOffRequestsService.create', () => {
       requestedDays: 2,
       status: RequestStatus.PENDING,
     });
-    const out = service.create(validCreate());
+    const out = await service.create(validCreate());
     expect(out.idempotentReplay).toBe(false);
     expect(out.payload.id).toBe('req_new');
     expect(reservationsRepo.insertActive).toHaveBeenCalled();
@@ -505,17 +508,17 @@ describe('TimeOffRequestsService.create', () => {
 });
 
 describe('TimeOffRequestsService.getById', () => {
-  it('throws when missing', () => {
+  it('throws when missing', async () => {
     const { service, requestsRepo } = serviceWithMocks();
     requestsRepo.findById.mockReturnValue(null);
-    expectApiError(
+    await expectApiError(
       () => service.getById('x'),
       HttpStatus.NOT_FOUND,
       'REQUEST_NOT_FOUND',
     );
   });
 
-  it('returns row', () => {
+  it('returns row', async () => {
     const { service, requestsRepo } = serviceWithMocks();
     const row = { id: '1', status: RequestStatus.PENDING };
     requestsRepo.findById.mockReturnValue(row);
@@ -524,35 +527,35 @@ describe('TimeOffRequestsService.getById', () => {
 });
 
 describe('TimeOffRequestsService.cancel', () => {
-  it('throws when request missing', () => {
+  it('throws when request missing', async () => {
     const { service, requestsRepo } = serviceWithMocks();
     requestsRepo.findById.mockReturnValue(null);
-    expectApiError(
+    await expectApiError(
       () => service.cancel('id', { cancelledBy: 'u' }),
       HttpStatus.NOT_FOUND,
       'REQUEST_NOT_FOUND',
     );
   });
 
-  it('returns idempotent payload when already cancelled', () => {
+  it('returns idempotent payload when already cancelled', async () => {
     const { service, requestsRepo } = serviceWithMocks();
     requestsRepo.findById.mockReturnValue({
       id: 'c1',
       status: RequestStatus.CANCELLED,
     });
-    expect(service.cancel('c1', { cancelledBy: 'u' })).toEqual({
+    expect(await service.cancel('c1', { cancelledBy: 'u' })).toEqual({
       id: 'c1',
       status: RequestStatus.CANCELLED,
     });
   });
 
-  it('cancels PENDING and runs transaction', () => {
+  it('cancels PENDING and runs transaction', async () => {
     const { service, requestsRepo, reservationsRepo, balancesRepo, audit } =
       serviceWithMocks();
     requestsRepo.findById.mockReturnValue(
       basePendingRequest({ id: 'pc1', employeeId: 'e', locationId: 'l' }),
     );
-    const out = service.cancel('pc1', { cancelledBy: 'emp' });
+    const out = await service.cancel('pc1', { cancelledBy: 'emp' });
     expect(out.status).toBe(RequestStatus.CANCELLED);
     expect(reservationsRepo.updateStatus).toHaveBeenCalledWith(
       'pc1',
@@ -563,7 +566,7 @@ describe('TimeOffRequestsService.cancel', () => {
     expect(audit.log).toHaveBeenCalled();
   });
 
-  it('cancels NEEDS_REVIEW same as pending path', () => {
+  it('cancels NEEDS_REVIEW same as pending path', async () => {
     const { service, requestsRepo, reservationsRepo } = serviceWithMocks();
     requestsRepo.findById.mockReturnValue(
       basePendingRequest({
@@ -571,11 +574,11 @@ describe('TimeOffRequestsService.cancel', () => {
         status: RequestStatus.NEEDS_REVIEW,
       }),
     );
-    service.cancel('nr1', { cancelledBy: 'emp' });
+    await service.cancel('nr1', { cancelledBy: 'emp' });
     expect(reservationsRepo.updateStatus).toHaveBeenCalled();
   });
 
-  it('throws when APPROVED but missing hcmTransactionId', () => {
+  it('throws when APPROVED but missing hcmTransactionId', async () => {
     const { service, requestsRepo } = serviceWithMocks();
     requestsRepo.findById.mockReturnValue({
       id: 'a1',
@@ -585,14 +588,14 @@ describe('TimeOffRequestsService.cancel', () => {
       status: RequestStatus.APPROVED,
       hcmTransactionId: null,
     });
-    expectApiError(
+    await expectApiError(
       () => service.cancel('a1', { cancelledBy: 'u' }),
       HttpStatus.CONFLICT,
       'INVALID_STATE_TRANSITION',
     );
   });
 
-  it('cancels APPROVED after HCM cancel and refresh', () => {
+  it('cancels APPROVED after HCM cancel and refresh', async () => {
     const { service, requestsRepo, hcm, balancesRepo, audit } =
       serviceWithMocks();
     requestsRepo.findById.mockReturnValue({
@@ -604,7 +607,7 @@ describe('TimeOffRequestsService.cancel', () => {
       hcmTransactionId: 'txn_1',
     });
     hcm.getBalance.mockReturnValue({ availableDays: 9 });
-    const out = service.cancel('a2', { cancelledBy: 'u' });
+    const out = await service.cancel('a2', { cancelledBy: 'u' });
     expect(out.status).toBe(RequestStatus.CANCELLED);
     expect(hcm.cancelTimeOff).toHaveBeenCalledWith('txn_1');
     expect(balancesRepo.upsertHcmOnly).toHaveBeenCalled();
@@ -612,7 +615,7 @@ describe('TimeOffRequestsService.cancel', () => {
     expect(audit.log).toHaveBeenCalled();
   });
 
-  it('maps HcmClientException from cancelTimeOff to HCM_CANCEL_REJECTED', () => {
+  it('maps HcmClientException from cancelTimeOff to HCM_CANCEL_REJECTED', async () => {
     const { service, requestsRepo, hcm } = serviceWithMocks();
     requestsRepo.findById.mockReturnValue({
       id: 'a3',
@@ -629,14 +632,14 @@ describe('TimeOffRequestsService.cancel', () => {
         { transactionId: 'txn_bad' },
       );
     });
-    expectApiError(
+    await expectApiError(
       () => service.cancel('a3', { cancelledBy: 'u' }),
       HttpStatus.CONFLICT,
       'HCM_CANCEL_REJECTED',
     );
   });
 
-  it('rethrows non-HcmClientException from cancelTimeOff', () => {
+  it('rethrows non-HcmClientException from cancelTimeOff', async () => {
     const { service, requestsRepo, hcm } = serviceWithMocks();
     requestsRepo.findById.mockReturnValue({
       id: 'a4',
@@ -649,10 +652,12 @@ describe('TimeOffRequestsService.cancel', () => {
     hcm.cancelTimeOff.mockImplementation(() => {
       throw new Error('wire');
     });
-    expect(() => service.cancel('a4', { cancelledBy: 'u' })).toThrow('wire');
+    await expect(
+      service.cancel('a4', { cancelledBy: 'u' }),
+    ).rejects.toThrow('wire');
   });
 
-  it('throws when cancelling HCM_REJECTED', () => {
+  it('throws when cancelling HCM_REJECTED', async () => {
     const { service, requestsRepo } = serviceWithMocks();
     requestsRepo.findById.mockReturnValue({
       id: 'h1',
@@ -661,7 +666,7 @@ describe('TimeOffRequestsService.cancel', () => {
       requestedDays: 1,
       status: RequestStatus.HCM_REJECTED,
     });
-    expectApiError(
+    await expectApiError(
       () => service.cancel('h1', { cancelledBy: 'u' }),
       HttpStatus.CONFLICT,
       'INVALID_STATE_TRANSITION',

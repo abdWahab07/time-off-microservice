@@ -29,8 +29,12 @@ describe('API key guard (e2e)', () => {
     await app.close();
   });
 
-  it('GET /health is not protected', async () => {
-    await request(app.getHttpServer()).get('/health').expect(200);
+  it('GET /health requires API key when API_KEY is set', async () => {
+    await request(app.getHttpServer()).get('/health').expect(401);
+    await request(app.getHttpServer())
+      .get('/health')
+      .set('X-Api-Key', API_KEY)
+      .expect(200);
   });
 
   it('returns 401 for POST /mock-hcm/balances without key', async () => {

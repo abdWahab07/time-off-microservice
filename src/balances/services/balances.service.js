@@ -26,14 +26,14 @@ class BalancesService {
    * @param {string} locationId
    * @param {{ refresh?: boolean }} [query]
    */
-  getBalance(employeeId, locationId, query = {}) {
+  async getBalance(employeeId, locationId, query = {}) {
     const refresh = query.refresh === true || query.refresh === 'true';
     let local = this.repo.findByEmployeeLocation(employeeId, locationId);
     let isStale = false;
 
     if (refresh) {
       try {
-        const hcm = this.hcm.getBalance(employeeId, locationId);
+        const hcm = await this.hcm.getBalance(employeeId, locationId);
         const now = new Date().toISOString();
         local = this.repo.upsertHcmOnly({
           employeeId,

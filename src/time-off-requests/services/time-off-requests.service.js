@@ -76,9 +76,9 @@ class TimeOffRequestsService {
   }
 
   /**
-   * @returns {{ idempotentReplay: boolean; payload: object }}
+   * @returns {Promise<{ idempotentReplay: boolean; payload: object }>}
    */
-  create(dto) {
+  async create(dto) {
     const p = validatePlain(CreateTimeOffRequestDto, dto);
     assertDateOrder(p.startDate, p.endDate);
 
@@ -121,7 +121,7 @@ class TimeOffRequestsService {
 
     let hcmBalance;
     try {
-      hcmBalance = this.hcm.getBalance(p.employeeId, p.locationId);
+      hcmBalance = await this.hcm.getBalance(p.employeeId, p.locationId);
     } catch (e) {
       if (e instanceof HcmClientException) {
         if (e.code === HcmClientErrorCode.INVALID_DIMENSIONS) {
@@ -262,7 +262,7 @@ class TimeOffRequestsService {
     });
   }
 
-  approve(id, body) {
+  async approve(id, body) {
     const b = validatePlain(ApproveRequestDto, body);
     const req = this.requestsRepo.findById(id);
     if (!req) {
@@ -307,7 +307,7 @@ class TimeOffRequestsService {
 
     let hcmBal;
     try {
-      hcmBal = this.hcm.getBalance(req.employeeId, req.locationId);
+      hcmBal = await this.hcm.getBalance(req.employeeId, req.locationId);
     } catch (e) {
       if (e instanceof HcmClientException) {
         throw apiError(
@@ -347,7 +347,7 @@ class TimeOffRequestsService {
 
     const now = new Date().toISOString();
     try {
-      const filed = this.hcm.fileTimeOff({
+      const filed = await this.hcm.fileTimeOff({
         employeeId: req.employeeId,
         locationId: req.locationId,
         requestedDays: req.requestedDays,
@@ -376,7 +376,7 @@ class TimeOffRequestsService {
       );
       trx();
 
-      const latest = this.hcm.getBalance(req.employeeId, req.locationId);
+      const latest = await this.hcm.getBalance(req.employeeId, req.locationId);
       const refreshedAt = new Date().toISOString();
       this.balancesRepo.upsertHcmOnly({
         employeeId: req.employeeId,
@@ -569,7 +569,7 @@ class TimeOffRequestsService {
     return { id: updated.id, status: updated.status };
   }
 
-  cancel(id, body) {
+  async cancel(id, body) {
     const b = validatePlain(CancelRequestDto, body);
     const req = this.requestsRepo.findById(id);
     if (!req) {
@@ -634,7 +634,7 @@ class TimeOffRequestsService {
         );
       }
       try {
-        this.hcm.cancelTimeOff(req.hcmTransactionId);
+        await this.hcm.cancelTimeOff(req.hcmTransactionId);
       } catch (e) {
         if (e instanceof HcmClientException) {
           throw apiError(
@@ -647,7 +647,7 @@ class TimeOffRequestsService {
         throw e;
       }
       const now = new Date().toISOString();
-      const latest = this.hcm.getBalance(req.employeeId, req.locationId);
+      const latest = await this.hcm.getBalance(req.employeeId, req.locationId);
       this.balancesRepo.upsertHcmOnly({
         employeeId: req.employeeId,
         locationId: req.locationId,

@@ -6,7 +6,7 @@ NestJS (JavaScript) + SQLite service that coordinates employee time-off requests
 
 - **HCM** is the source of truth for balances and for accepting filed time off. ReadyOn stores an operational cache (`balances`), pending **reservations** (`balance_reservations`), request lifecycle (`time_off_requests`), outbound **HCM operations** (`hcm_operations`), batch sync runs (`hcm_sync_runs`), and **audit** entries (`audit_logs`).
 - Critical writes use SQLite **transactions** with `BEGIN IMMEDIATE` where concurrent reservation safety matters.
-- **Mock HCM** (`MockHcmService` + `/mock-hcm/*`) simulates balance lookup, filing, cancellation, seeding, and failure modes (`DOWN`, `TIMEOUT`, `INVALID_DIMENSIONS`, `INSUFFICIENT_BALANCE`, `RANDOM_FAILURE`). The production-shaped **`HcmClientService`** calls the mock in-process (swap for HTTP + auth later).
+- **Mock HCM** (`MockHcmService`) simulates balance lookup, filing, cancellation, seeding, and failure modes (`DOWN`, `TIMEOUT`, `INVALID_DIMENSIONS`, `INSUFFICIENT_BALANCE`, `RANDOM_FAILURE`). By default Nest exposes **`/mock-hcm/*`** and **`HcmClientService`** uses the mock **in-process**. Set **`HCM_BASE_URL`** to an HTTP origin (for example the standalone **`mock-hcm-server`**) to exercise the **same API over the network**; optional **`HCM_API_KEY`** is sent as `X-Api-Key` on outbound calls.
 
 ## Prerequisites
 
@@ -24,13 +24,21 @@ Copy `.env.example` to `.env` and adjust as needed:
 | `PORT`         | HTTP port                            | `3000`               |
 | `NODE_ENV`     | `test` skips loading `.env` file     | `development`        |
 | `DATABASE_URL` | SQLite file path or `:memory:`       | `./data/timeoff.db`  |
-| `HCM_BASE_URL` | Reserved for future HTTP HCM client | _(empty)_            |
-| `HCM_API_KEY`  | Reserved for future HCM auth         | _(empty)_            |
-| `API_KEY`      | When set, protects mutating time-off `POST`s, all `/mock-hcm/*`, and `POST /sync/hcm/balances` (`Authorization: Bearer …` or `X-Api-Key`) | _(empty)_ |
+| `HCM_BASE_URL` | When set, `HcmClientService` calls this origin over HTTP (`/mock-hcm/...` paths). Internal Nest `/mock-hcm` routes are omitted. | _(empty)_ |
+| `HCM_API_KEY`  | Outbound `X-Api-Key` for HCM HTTP calls (e.g. standalone mock) | _(empty)_ |
+| `HCM_TIMEOUT_MS` | Outbound HCM HTTP timeout (ms) | `15000` |
+| `API_KEY`      | Primary service key for protected routes | _(empty)_ |
+| `API_KEY_PREVIOUS` | Optional previous key during key rotation | _(empty)_ |
+| `TLS_CERT_PATH` / `TLS_KEY_PATH` | PEM paths to enable **HTTPS** in Nest | _(empty)_ |
+| `JWT_ISSUER`, `JWT_AUDIENCE`, `JWT_JWKS_URI` or `JWT_SECRET`, `JWT_SUB_CLAIM`, `JWT_ROLES_CLAIM` | Optional **JWT** verification, subject binding, and RBAC roles (see **`SECURITY.md`**) | _(empty)_ |
+| `CORS_ENABLED`, `CORS_ORIGIN`, `CORS_CREDENTIALS` | Browser CORS controls (allowlist origins in prod) | see `.env.example` |
+| `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX` | Global IP rate limit | `60000`, `120` |
+| `SECURITY_AUTH_FAILURE_WINDOW_MS`, `SECURITY_AUTH_FAILURE_THRESHOLD` | Auth-failure anomaly detection window/threshold | `60000`, `10` |
+| `TRUST_PROXY` | Trust ingress proxy headers (`x-forwarded-for`) | `true` in prod |
 
 ## Security
 
-Optional shared secret: set **`API_KEY`** in `.env` so privileged routes are not anonymously callable in shared or staging environments. When unset, behavior matches open local development. See **`SECURITY.md`** for threat notes and production follow-ups (TLS, OIDC, disabling mock HCM).
+Set **`API_KEY`** for protected routes (and use `API_KEY_PREVIOUS` briefly during rotation). Optionally set **JWT** env vars so `employeeId` / `managerId` / `cancelledBy` and read scopes are tied to the token **subject**, and roles are enforced (`employee` / `manager` / `admin` / `system`). Helmet, CORS controls, and rate limiting are enabled/configurable. Use TLS at ingress in production (optionally Nest TLS for local/staging). Details: **`SECURITY.md`**.
 
 ## Setup
 
@@ -48,13 +56,23 @@ npm start
 ```
 
 - Health: `GET http://localhost:3000/health`
-- Main APIs are under `/balances`, `/time-off-requests`, `/sync/hcm`, and `/mock-hcm`.
+- Main APIs are under `/balances`, `/time-off-requests`, `/sync/hcm`, and (when `HCM_BASE_URL` is unset) `/mock-hcm`.
+
+### Standalone mock HCM (optional)
+
+In a second terminal (repo root):
+
+```bash
+npm run mock-hcm:serve
+```
+
+Then point the main app at it, for example `HCM_BASE_URL=http://127.0.0.1:4010` and matching `HCM_API_KEY` / `MOCK_HCM_API_KEY` if you enable auth on the mock. See **`TRD.md` §15.3–15.4** and **`.env.example`**.
 
 ## Tests
 
 ```bash
 npm test                 # unit tests (src/**/*.spec.js), incl. repos + exception filter
-npm run test:e2e         # e2e only (in-memory DB)
+npm run test:e2e         # e2e (in-memory DB), incl. remote HCM mock smoke (`hcm-remote-mock.e2e-spec.js`)
 npm run test:cov         # unit + e2e with coverage (jest.full.config.json)
 ```
 
@@ -133,7 +151,7 @@ Content-Type: application/json
 ## Known limitations (take-home scope)
 
 - No real Workday/SAP integration; mock HCM is in-process.
-- No JWT/OIDC; manager/employee identity is passed as fields. Use **`API_KEY`** (see above) as a minimal gate for writes, sync, and mock HCM until a real IdP is integrated.
+- JWT + role checks are optional and env-driven; without JWT env vars, identity enforcement falls back to API key only (see **`SECURITY.md`**).
 - SQLite instead of Postgres; no distributed outbox worker (schema supports `hcm_operations` evolution).
 - No holiday calendars, half-days, or multiple leave types.
 - HTTP status codes for successful `POST` actions default to Nest’s `201` where not overridden.

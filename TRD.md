@@ -257,6 +257,8 @@ time-off-microservice/
 ├── migrations/
 ├── scripts/
 ├── test/
+├── mock-hcm-server/
+│   └── server.cjs
 ├── src/
 │   ├── app.module.js
 │   ├── main.js
@@ -827,6 +829,20 @@ Balance lookup, time-off filing, cancellation, manual balance mutation, batch ba
 
 **Supported modes:** `DOWN`, `TIMEOUT`, `INVALID_DIMENSIONS`, `INSUFFICIENT_BALANCE`, `RANDOM_FAILURE`
 
+### 15.3 Deployable HTTP mock (separate process)
+
+The assessment guide suggests optionally deploying a **real mock server** for HCM. This repository includes **`mock-hcm-server/server.cjs`**: a small Node HTTP server that reuses **`MockHcmService`** and exposes the **same `/mock-hcm/*` routes** as the Nest controller (plus `GET /health`).
+
+- Run: `npm run mock-hcm:serve` (see `README.md`).
+- Optional env on the mock process: `MOCK_HCM_PORT` (default `4010`), `MOCK_HCM_API_KEY` (if set, clients must send `X-Api-Key`).
+
+### 15.4 HCM client routing (`HCM_BASE_URL`)
+
+- **Default (unset `HCM_BASE_URL`):** `HcmClientService` calls the in-process **`MockHcmService`**. Nest exposes **`/mock-hcm/*`** for seeding and failure simulation in dev/CI.
+- **Remote mock or real HCM adapter:** When **`HCM_BASE_URL`** is set to an HTTP(S) origin, `HcmClientService` uses **`fetch`** to that host under the same `/mock-hcm/...` paths. Nest **does not** register **`MockHcmController`** in that mode (avoids two unrelated in-memory stores). Outbound auth uses **`HCM_API_KEY`** as `X-Api-Key` when set. **`HCM_TIMEOUT_MS`** bounds request duration.
+
+Integration proof: `test/hcm-remote-mock.e2e-spec.js` starts the standalone mock, sets `HCM_BASE_URL`, and creates a time-off request end-to-end.
+
 ---
 
 ## 16. Consistency model
@@ -942,11 +958,11 @@ Pure business logic: balance display rules, request validation, state machine tr
 
 ### 23.2 Integration tests
 
-Against Nest app, SQLite test DB, mock HCM — scenarios including create (sufficient/insufficient balance), approve success, HCM rejects approval, batch sync up/down, invalid dimensions, HCM down on create, idempotency, concurrent reservations, duplicate approve safety, audit presence.
+Against Nest app, SQLite test DB, mock HCM — scenarios including create (sufficient/insufficient balance), approve success, HCM rejects approval, batch sync up/down, invalid dimensions, HCM down on create, idempotency, concurrent reservations, duplicate approve safety, audit presence. **Default e2e** seeds via in-process **`/mock-hcm/*`**. **`test/hcm-remote-mock.e2e-spec.js`** additionally proves **`HCM_BASE_URL`** against the **standalone** `mock-hcm-server` process.
 
 ### 23.3 Contract tests for HCM client
 
-Map success, insufficient balance, invalid dimensions, timeout, unexpected responses.
+Map success, insufficient balance, invalid dimensions, timeout, unexpected responses. The HTTP client path (`HCM_BASE_URL` set) maps JSON error bodies from the standalone mock into `HcmClientException` the same way as in-process errors.
 
 ### 23.4 End-to-end scenario
 
@@ -1016,6 +1032,10 @@ time-off-microservice/
 
 This TRD aligns the implementation with assessment criteria: engineering specification (problem, architecture, data model, consistency, APIs, failures, alternatives), rigorous tests (balance integrity, HCM failures, sync conflicts, idempotency, lifecycle, reservations), and code quality (small services, clear modules, explicit errors, predictable states, simple schema, easy setup, readable tests, clear README).
 
+### 29.1 Take-home “guide” options vs this submission
+
+The Wizdaa instructions describe an **optional agentic path** where the candidate produces a very thorough TRD and tests **without writing application code**. The **Google Form submission** for this stage also requires **uploadable complete JavaScript source**, so this repository follows the **full implementation** path: TRD plus NestJS + SQLite service code, in-process mock for fast tests, **and** a **deployable HTTP mock** plus **`HCM_BASE_URL`** wiring so reviewers can exercise a realistic network boundary. Appendix A and §15.3–15.4 stay aligned with that behavior.
+
 ---
 
 ## 30. Final summary
@@ -1033,12 +1053,16 @@ The following supplements the specification with how this codebase maps to it:
 | Schema | `migrations/001_initial.sql` |
 | State machine | `src/time-off-requests/state/time-off-state-machine.js` |
 | Domain orchestration | `src/time-off-requests/services/time-off-requests.service.js` |
-| Mock HCM | `src/hcm/services/mock-hcm.service.js`, `src/hcm/mock-hcm.controller.js` |
-| HCM client / errors | `src/hcm/services/hcm-client.service.js`, `src/hcm/hcm-error.mapper.js` |
+| Mock HCM (logic) | `src/hcm/services/mock-hcm.service.js` |
+| Mock HCM (HTTP in Nest, when `HCM_BASE_URL` unset) | `src/hcm/mock-hcm.controller.js` |
+| Mock HCM (standalone server) | `mock-hcm-server/server.cjs` |
+| HCM client / errors | `src/hcm/services/hcm-client.service.js` (in-process or `fetch` when `HCM_BASE_URL` set), `src/hcm/hcm-error.mapper.js` |
 | Batch sync | `src/sync/services/sync.service.js`, `src/sync/repositories/sync.repository.js` |
 | App wiring | `src/app.module.js`, `src/configure-app.js` |
 | Tests | `npm test`, `npm run test:e2e`, `npm run test:cov` |
 
-**Optional API key (assessment hardening):** When `API_KEY` is set, `ApiKeyGuard` protects mutating time-off routes, `POST /sync/hcm/balances`, and `/mock-hcm/*`. See `SECURITY.md`. **In-process mock HCM** (same Nest app) is used for integration tests instead of a separate HTTP mock server.
+**Optional API key (assessment hardening):** When `API_KEY` is set, `ApiKeyGuard` protects mutating time-off routes, `POST /sync/hcm/balances`, and `/mock-hcm/*` (when the internal mock controller is registered). See `SECURITY.md`.
 
-**Status line:** Treat **Section 1–30** as the authoritative product/technical specification. **§9** matches this repository’s layout. Appendix A lists key file paths and optional **`API_KEY`** behavior.
+**HCM wiring:** With **`HCM_BASE_URL` unset**, the service uses the **in-process** `MockHcmService` and exposes **`/mock-hcm/*`** from Nest (default for `npm run test:e2e`). With **`HCM_BASE_URL` set**, the service calls HCM over **HTTP** and the internal **`/mock-hcm/*`** controller is omitted; use the **standalone** `mock-hcm-server` (or another adapter) at that origin. See **`test/hcm-remote-mock.e2e-spec.js`**.
+
+**Status line:** Treat **Section 1–30** as the authoritative product/technical specification. **§9** matches this repository’s layout. Appendix A lists key file paths, **`API_KEY`**, and **remote vs in-process HCM** behavior.

@@ -37,3 +37,17 @@ export function mapHcmClientExceptionToHttp(err) {
     status,
   );
 }
+
+/**
+ * @param {HcmClientException} err
+ * @returns {number}
+ */
+export function statusForHcmClientException(err) {
+  const statusByCode = {
+    [HcmClientErrorCode.INSUFFICIENT_BALANCE]: HttpStatus.CONFLICT,
+    [HcmClientErrorCode.INVALID_DIMENSIONS]: HttpStatus.UNPROCESSABLE_ENTITY,
+    [HcmClientErrorCode.HCM_UNAVAILABLE]: HttpStatus.SERVICE_UNAVAILABLE,
+    [HcmClientErrorCode.UNKNOWN]: HttpStatus.INTERNAL_SERVER_ERROR,
+  };
+  return statusByCode[err.code] || HttpStatus.BAD_GATEWAY;
+}
