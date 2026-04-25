@@ -1,9 +1,9 @@
 import { Dependencies, Injectable } from '@nestjs/common';
-import { BalancesRepository } from '../balances/balances.repository';
-import { TimeOffRequestsRepository } from '../time-off-requests/time-off-requests.repository';
-import { AuditService } from '../audit/audit.service';
-import { SyncRepository } from './sync.repository';
-import { RequestStatus } from '../time-off-requests/time-off-state-machine';
+import { BalancesRepository } from '../../balances/repositories/balances.repository';
+import { TimeOffRequestsRepository } from '../../time-off-requests/repositories/time-off-requests.repository';
+import { AuditService } from '../../audit/services/audit.service';
+import { SyncRepository } from '../repositories/sync.repository';
+import { RequestStatus } from '../../time-off-requests/state/time-off-state-machine';
 
 @Injectable()
 @Dependencies(BalancesRepository, TimeOffRequestsRepository, SyncRepository, AuditService)

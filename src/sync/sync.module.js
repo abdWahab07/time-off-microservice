@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { SyncController } from './sync.controller';
-import { SyncService } from './sync.service';
-import { SyncRepository } from './sync.repository';
+import { SyncService } from './services/sync.service';
+import { SyncRepository } from './repositories/sync.repository';
 import { BalancesModule } from '../balances/balances.module';
 import { AuditModule } from '../audit/audit.module';
-import { TimeOffRequestsRepository } from '../time-off-requests/time-off-requests.repository';
+import { TimeOffRequestsRepository } from '../time-off-requests/repositories/time-off-requests.repository';
 
 @Module({
   imports: [BalancesModule, AuditModule],

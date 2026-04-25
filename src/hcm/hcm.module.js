@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
-import { MockHcmService } from './mock-hcm.service';
+import { MockHcmService } from './services/mock-hcm.service';
 import { MockHcmController } from './mock-hcm.controller';
-import { HcmClientService } from './hcm-client.service';
+import { HcmClientService } from './services/hcm-client.service';
 
 @Module({
   controllers: [MockHcmController],

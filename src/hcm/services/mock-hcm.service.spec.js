@@ -1,6 +1,6 @@
 import { MockHcmService } from './mock-hcm.service';
-import { HcmFailureMode } from './hcm.types';
-import { HcmClientException } from './hcm-error.mapper';
+import { HcmFailureMode } from '../hcm.types';
+import { HcmClientException } from '../hcm-error.mapper';
 
 describe('MockHcmService', () => {
   let svc;

@@ -1,5 +1,5 @@
 import { Dependencies, Injectable } from '@nestjs/common';
-import { AuditRepository } from './audit.repository';
+import { AuditRepository } from '../repositories/audit.repository';
 
 @Injectable()
 @Dependencies(AuditRepository)

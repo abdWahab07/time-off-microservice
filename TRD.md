@@ -267,37 +267,48 @@ time-off-microservice/
 │   ├── balances/
 │   │   ├── balances.module.js
 │   │   ├── balances.controller.js
-│   │   ├── balances.service.js
-│   │   └── balances.repository.js
+│   │   ├── repositories/
+│   │   │   └── balances.repository.js
+│   │   └── services/
+│   │       └── balances.service.js
 │   ├── time-off-requests/
 │   │   ├── dto/
+│   │   ├── repositories/
+│   │   │   ├── time-off-requests.repository.js
+│   │   │   ├── reservations.repository.js
+│   │   │   └── hcm-operations.repository.js
+│   │   ├── services/
+│   │   │   └── time-off-requests.service.js
+│   │   ├── state/
+│   │   │   └── time-off-state-machine.js
 │   │   ├── time-off-requests.module.js
-│   │   ├── time-off-requests.controller.js
-│   │   ├── time-off-requests.service.js
-│   │   ├── time-off-requests.repository.js
-│   │   ├── reservations.repository.js
-│   │   ├── hcm-operations.repository.js
-│   │   └── time-off-state-machine.js
+│   │   └── time-off-requests.controller.js
 │   ├── hcm/
 │   │   ├── hcm.module.js
-│   │   ├── hcm-client.service.js
+│   │   ├── mock-hcm.controller.js
 │   │   ├── hcm-error.mapper.js
 │   │   ├── hcm.types.js
-│   │   ├── mock-hcm.service.js
-│   │   └── mock-hcm.controller.js
+│   │   └── services/
+│   │       ├── hcm-client.service.js
+│   │       └── mock-hcm.service.js
 │   ├── sync/
 │   │   ├── sync.module.js
 │   │   ├── sync.controller.js
-│   │   ├── sync.service.js
-│   │   └── sync.repository.js
+│   │   ├── repositories/
+│   │   │   └── sync.repository.js
+│   │   └── services/
+│   │       └── sync.service.js
 │   ├── audit/
 │   │   ├── audit.module.js
-│   │   ├── audit.service.js
-│   │   └── audit.repository.js
+│   │   ├── repositories/
+│   │   │   └── audit.repository.js
+│   │   └── services/
+│   │       └── audit.service.js
 │   ├── database/
 │   │   ├── database.module.js
 │   │   ├── database.constants.js
-│   │   └── sqlite.client.js
+│   │   └── repositories/
+│   │       └── sqlite.client.js
 │   └── common/
 │       ├── common.module.js
 │       ├── errors/
@@ -1020,11 +1031,11 @@ The following supplements the specification with how this codebase maps to it:
 | Area | Location |
 |------|----------|
 | Schema | `migrations/001_initial.sql` |
-| State machine | `src/time-off-requests/time-off-state-machine.js` |
-| Domain orchestration | `src/time-off-requests/time-off-requests.service.js` |
-| Mock HCM | `src/hcm/mock-hcm.service.js`, `src/hcm/mock-hcm.controller.js` |
-| HCM client / errors | `src/hcm/hcm-client.service.js`, `src/hcm/hcm-error.mapper.js` |
-| Batch sync | `src/sync/sync.service.js`, `src/sync/sync.repository.js` |
+| State machine | `src/time-off-requests/state/time-off-state-machine.js` |
+| Domain orchestration | `src/time-off-requests/services/time-off-requests.service.js` |
+| Mock HCM | `src/hcm/services/mock-hcm.service.js`, `src/hcm/mock-hcm.controller.js` |
+| HCM client / errors | `src/hcm/services/hcm-client.service.js`, `src/hcm/hcm-error.mapper.js` |
+| Batch sync | `src/sync/services/sync.service.js`, `src/sync/repositories/sync.repository.js` |
 | App wiring | `src/app.module.js`, `src/configure-app.js` |
 | Tests | `npm test`, `npm run test:e2e`, `npm run test:cov` |
 

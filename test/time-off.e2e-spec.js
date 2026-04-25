@@ -2,7 +2,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { configureHttpApp } from '../src/configure-app';
-import { MockHcmService } from '../src/hcm/mock-hcm.service';
+import { MockHcmService } from '../src/hcm/services/mock-hcm.service';
 
 describe('Time-Off microservice (e2e)', () => {
   let app;

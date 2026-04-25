@@ -9,7 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiKeyGuard } from '../common/guards/api-key.guard';
-import { TimeOffRequestsService } from './time-off-requests.service';
+import { TimeOffRequestsService } from './services/time-off-requests.service';
 
 @Controller('time-off-requests')
 @Dependencies(TimeOffRequestsService)

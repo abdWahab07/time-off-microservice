@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { HcmClientErrorCode, HcmFailureMode } from './hcm.types';
-import { HcmClientException } from './hcm-error.mapper';
+import { HcmClientErrorCode, HcmFailureMode } from '../hcm.types';
+import { HcmClientException } from '../hcm-error.mapper';
 
 function balanceKey(employeeId, locationId) {
   return `${employeeId}\0${locationId}`;

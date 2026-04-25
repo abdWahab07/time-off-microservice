@@ -1,7 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { DATABASE_CONNECTION } from './database.constants';
-import { openDatabase } from './sqlite.client';
+import { openDatabase } from './repositories/sqlite.client';
 
 @Global()
 @Module({

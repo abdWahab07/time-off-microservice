@@ -1,5 +1,5 @@
 import { Controller, Dependencies, Get, Req } from '@nestjs/common';
-import { BalancesService } from './balances.service';
+import { BalancesService } from './services/balances.service';
 
 @Controller('balances')
 @Dependencies(BalancesService)

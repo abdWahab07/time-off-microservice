@@ -1,6 +1,6 @@
 import { Controller, Dependencies, Get, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiKeyGuard } from '../common/guards/api-key.guard';
-import { MockHcmService } from './mock-hcm.service';
+import { MockHcmService } from './services/mock-hcm.service';
 
 @Controller('mock-hcm')
 @UseGuards(ApiKeyGuard)

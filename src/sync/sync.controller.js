@@ -1,6 +1,6 @@
 import { Controller, Dependencies, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiKeyGuard } from '../common/guards/api-key.guard';
-import { SyncService } from './sync.service';
+import { SyncService } from './services/sync.service';
 
 @Controller('sync/hcm')
 @UseGuards(ApiKeyGuard)

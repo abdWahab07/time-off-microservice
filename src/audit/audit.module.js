@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { AuditRepository } from './audit.repository';
-import { AuditService } from './audit.service';
+import { AuditRepository } from './repositories/audit.repository';
+import { AuditService } from './services/audit.service';
 
 @Module({
   providers: [AuditRepository, AuditService],

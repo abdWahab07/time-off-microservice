@@ -1,6 +1,6 @@
 import { Dependencies, Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { DATABASE_CONNECTION } from '../database/database.constants';
+import { DATABASE_CONNECTION } from '../../database/database.constants';
 
 function mapRow(r) {
   if (!r) return null;

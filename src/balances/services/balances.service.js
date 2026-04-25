@@ -1,10 +1,10 @@
 import { Dependencies, HttpStatus, Injectable } from '@nestjs/common';
-import { BalancesRepository } from './balances.repository';
-import { HcmClientService } from '../hcm/hcm-client.service';
-import { AuditService } from '../audit/audit.service';
-import { HcmClientException } from '../hcm/hcm-error.mapper';
-import { HcmClientErrorCode } from '../hcm/hcm.types';
-import { apiError } from '../common/errors/api-error';
+import { BalancesRepository } from '../repositories/balances.repository';
+import { HcmClientService } from '../../hcm/services/hcm-client.service';
+import { AuditService } from '../../audit/services/audit.service';
+import { HcmClientException } from '../../hcm/hcm-error.mapper';
+import { HcmClientErrorCode } from '../../hcm/hcm.types';
+import { apiError } from '../../common/errors/api-error';
 
 @Injectable()
 @Dependencies(BalancesRepository, HcmClientService, AuditService)

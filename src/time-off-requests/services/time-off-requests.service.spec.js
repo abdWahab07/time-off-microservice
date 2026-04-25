@@ -1,9 +1,9 @@
 import 'reflect-metadata';
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { TimeOffRequestsService } from './time-off-requests.service';
-import { RequestStatus } from './time-off-state-machine';
-import { HcmClientException } from '../hcm/hcm-error.mapper';
-import { HcmClientErrorCode } from '../hcm/hcm.types';
+import { RequestStatus } from '../state/time-off-state-machine';
+import { HcmClientException } from '../../hcm/hcm-error.mapper';
+import { HcmClientErrorCode } from '../../hcm/hcm.types';
 
 function trxDb() {
   return {
